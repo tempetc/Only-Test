@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
   push:
-    branches: [master, experimental]
+    branches: [master, main, experimental]
     paths-ignore:
       # Case-sensitive paths to ignore on push events
       - '.editorconfig'
@@ -193,6 +193,21 @@ jobs:
 
       - name: Merging Build
         run: Installer\copy_build.cmd x64 build_qt6
+
+      # Local build unlock: test-sign the freshly built driver so the artifact
+      # can actually load on a machine with testsigning enabled. In test
+      # signing mode Windows accepts any certificate, but the driver image
+      # itself must carry a signature. Failure here does not break the build.
+      - name: Test-sign the driver (local build unlock)
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $sys = "Installer\SbiePlus_x64\SbieDrv.sys"
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=Sandboxie-Plus Local Test Build" -KeyUsage DigitalSignature -KeyExportPolicy Exportable -CertStoreLocation "Cert:\CurrentUser\My"
+          $signtool = (Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1 -ExpandProperty FullName)
+          & $signtool sign /fd SHA256 /sha1 $cert.Thumbprint $sys
+          Write-Host "Driver test-signed: $sys ($($cert.Thumbprint))"
 
       - name: Collect installer assets
         run: Installer\get_assets.cmd
