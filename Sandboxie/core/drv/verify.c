@@ -533,6 +533,17 @@ _FX LONGLONG KphGetDateInterval(CSHORT days, CSHORT months, CSHORT years)
 
 SCertInfo Verify_CertInfo = { 0 };
 
+//
+// ===== Local build modification [BEGIN] =====
+// Mutable flag (see KphValidateCertificate below): when TRUE, no certificate
+// file is needed and the full Sandboxie-Plus feature set is unlocked.
+// Kept as a variable rather than a literal so that the original validation
+// code remains reachable for the compiler (the driver builds with
+// TreatWarningAsError enabled).
+//
+BOOLEAN Kph_LocalBuild_UnlockAll = TRUE;
+// ===== Local build modification [END] =====
+
 _FX NTSTATUS KphValidateCertificate()
 {
     BOOLEAN CertDbg = FALSE;
@@ -566,6 +577,27 @@ _FX NTSTATUS KphValidateCertificate()
     BOOLEAN node_pass = FALSE;
 
     Verify_CertInfo.State = 0; // clear
+
+    //
+    // ===== Local build modification [BEGIN] =====
+    // Unlock everything: no certificate file is required, the full feature set
+    // (Eternal certificate, Max level - Security/Privacy enhanced boxes,
+    //  Encrypted boxes, Network features, Sandboxie Desktop) is always active.
+    //
+    if (Kph_LocalBuild_UnlockAll) {
+
+        Verify_CertInfo.active = 1;
+        Verify_CertInfo.locked = 1;
+        Verify_CertInfo.type = eCertEternal;
+        Verify_CertInfo.level = eCertMaxLevel;
+        Verify_CertInfo.opt_sec = 1;
+        Verify_CertInfo.opt_enc = 1;
+        Verify_CertInfo.opt_net = 1;
+        Verify_CertInfo.opt_desk = 1;
+
+        return STATUS_SUCCESS;
+    }
+    // ===== Local build modification [END] =====
 
     if(!NT_SUCCESS(status = MyInitHash(&hashObj)))
         goto CleanupExit;
